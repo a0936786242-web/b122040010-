@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式凱撒密碼與頻率分析器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center py-10 px-4">
+
+    <div class="max-w-4xl w-full bg-slate-800 rounded-xl shadow-2xl p-6 md:p-8 border border-slate-700">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-indigo-400 mb-2">凱撒密碼與頻率分析器</h1>
+            <p class="text-slate-400 text-sm">應用數學與資訊安全視覺化小工具</p>
+        </header>
+
+        <!-- 操控與輸入區 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- 輸入欄位 -->
+            <div class="flex flex-col">
+                <label class="text-sm font-medium text-slate-300 mb-2">輸入文字 (Plaintext / Ciphertext):</label>
+                <textarea id="inputText" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-100 focus:outline-none focus:border-indigo-500" placeholder="在此輸入英文句子..."></textarea>
+            </div>
+            <!-- 設定與數值 -->
+            <div class="flex flex-col justify-between">
+                <div>
+                    <label class="text-sm font-medium text-slate-300 mb-2 flex justify-between">
+                        <span>位移量 (Shift):</span>
+                        <span id="shiftValue" class="text-indigo-400 font-bold">3</span>
+                    </label>
+                    <input type="range" id="shiftRange" min="0" max="25" value="3" class="w-full accent-indigo-500 cursor-pointer mb-4">
+                </div>
+                <div class="flex gap-4">
+                    <button id="modeEncrypt" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg font-medium transition">加密 (Encrypt)</button>
+                    <button id="modeDecrypt" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition">解密 (Decrypt)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 輸出結果區 -->
+        <div class="mb-8 bg-slate-900 p-4 rounded-lg border border-slate-700 relative">
+            <div class="text-xs text-slate-400 mb-1">轉換結果：</div>
+            <div id="outputText" class="text-lg font-mono text-emerald-400 break-words min-h-[3rem]"></div>
+        </div>
+
+        <!-- 頻率分析圖表區 -->
+        <div>
+            <h3 class="text-lg font-semibold text-slate-200 mb-3">字母頻率分析 (Letter Frequency Analysis)</h3>
+            <div class="bg-slate-900 p-4 rounded-lg border border-slate-700 h-64">
+                <canvas id="frequencyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        const inputText = document.getElementById('inputText');
+        const outputText = document.getElementById('outputText');
+        const shiftRange = document.getElementById('shiftRange');
+        const shiftValue = document.getElementById('shiftValue');
+        const modeEncrypt = document.getElementById('modeEncrypt');
+        const modeDecrypt = document.getElementById('modeDecrypt');
+
+        let isEncryptMode = true;
+
+        // 切換模式樣式
+        modeEncrypt.addEventListener('click', () => {
+            isEncryptMode = true;
+            modeEncrypt.className = "flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg font-medium transition";
+            modeDecrypt.className = "flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition";
+            processText();
+        });
+
+        modeDecrypt.addEventListener('click', () => {
+            isEncryptMode = false;
+            modeDecrypt.className = "flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg font-medium transition";
+            modeEncrypt.className = "flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition";
+            processText();
+        });
+
+        shiftRange.addEventListener('input', (e) => {
+            shiftValue.textContent = e.target.value;
+            processText();
+        });
+
+        inputText.addEventListener('input', processText);
+
+        // 凱撒密碼核心演算法
+        function caesarCipher(str, shift, encrypt = true) {
+            if (!encrypt) shift = (26 - shift) % 26;
+            return str.replace(/[a-zA-Z]/g, (char) => {
+                const start = char <= 'Z' ? 65 : 97;
+                return String.fromCharCode(((char.charCodeAt(0) - start + shift) % 26) + start);
+            });
+        }
+
+        // 初始化 Chart.js 圖表
+        const ctx = document.getElementById('frequencyChart').getContext('2d');
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const freqChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: alphabet,
+                datasets: [{
+                    label: '出現次數',
+                    data: new Array(26).fill(0),
+                    backgroundColor: '#818cf8',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#334155' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        function processText() {
+            const text = inputText.value;
+            const shift = parseInt(shiftRange.value);
+            
+            // 執行加解密
+            const result = caesarCipher(text, shift, isEncryptMode);
+            outputText.textContent = result;
+
+            // 計算頻率
+            const counts = new Array(26).fill(0);
+            const upperText = text.toUpperCase();
+            for (let i = 0; i < upperText.length; i++) {
+                const code = upperText.charCodeAt(i);
+                if (code >= 65 && code <= 90) {
+                    counts[code - 65]++;
+                }
+            }
+
+            // 更新圖表
+            freqChart.data.datasets[0].data = counts;
+            freqChart.update();
+        }
+
+        // 預設填入範例文字
+        inputText.value = "Hello Applied Mathematics and Computer Science!";
+        processText();
+    </script>
+</body>
+</html>
